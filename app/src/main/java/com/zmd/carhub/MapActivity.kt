@@ -187,7 +187,7 @@ class MapActivity : Activity() {
             }
             m.addOnMapClickListener { at -> onMapTap(at) }
             m.addOnCameraMoveListener { updateCompass(); paintCar() }
-            m.addOnCameraIdleListener { paintCameras() }
+            m.addOnCameraIdleListener { paintCameras(); paintChargers() }
             applyStyle()
         }
         buildUi()
@@ -286,6 +286,8 @@ class MapActivity : Activity() {
         s.addSource(GeoJsonSource(SRC_REPORTS, MapReports.geoJson()))
         s.addImage("cam-fixed", MapReports.icon(this, MapReports.type("camera"), 30f * mp.scale))
         s.addSource(GeoJsonSource(SRC_CAMS))
+        s.addImage(EV_IMG, MapIcons.chargerBitmap(this, (30 * mp.scale).toInt()))
+        s.addSource(GeoJsonSource(SRC_EV))
         fun width(scale: Float) = PropertyFactory.lineWidth(
             Expression.interpolate(
                 Expression.exponential(1.5f), Expression.zoom(),
@@ -312,6 +314,21 @@ class MapActivity : Activity() {
             PropertyFactory.textHaloWidth(1.5f),
             PropertyFactory.textAllowOverlap(true)
         ).apply { minZoom = 11f })
+        // EV charging stations (from the offline Iraq places, amenity=charging_station), from zoom 10.
+        s.addLayer(SymbolLayer(L_EV, SRC_EV).withProperties(
+            PropertyFactory.iconImage(EV_IMG),
+            PropertyFactory.iconAllowOverlap(true),
+            PropertyFactory.iconSize(Expression.interpolate(Expression.linear(), Expression.zoom(),
+                Expression.stop(10, 0.6f), Expression.stop(15, 1f))),
+            PropertyFactory.textField(Expression.get("name")),
+            PropertyFactory.textSize(12f * mp.scale),
+            PropertyFactory.textOffset(arrayOf(0f, 1.5f)),
+            PropertyFactory.textAnchor(Property.TEXT_ANCHOR_TOP),
+            PropertyFactory.textColor(0xFF0E7A3C.toInt()),
+            PropertyFactory.textHaloColor(0xFFFFFFFF.toInt()),
+            PropertyFactory.textHaloWidth(1.5f),
+            PropertyFactory.textOptional(true)
+        ).apply { minZoom = 10f })
         // Road reports (potholes, bumps, police...) above the route.
         s.addLayer(SymbolLayer(L_REPORTS, SRC_REPORTS).withProperties(
             PropertyFactory.iconImage(Expression.get("icon")),
@@ -692,6 +709,23 @@ class MapActivity : Activity() {
         val cams = runCatching { SpeedCameras.inBox(b.latitudeSouth, b.longitudeWest, b.latitudeNorth, b.longitudeEast) }.getOrDefault(emptyList())
         src.setGeoJson(FeatureCollection.fromFeatures(cams.take(400).map { cam ->
             Feature.fromGeometry(Point.fromLngLat(cam.lon, cam.lat)).apply { addStringProperty("label", cam.speed?.toString() ?: "") }
+        }))
+    }
+
+    /** EV charging stations inside the visible map (drawn from zoom 10; needs the offline Iraq places). */
+    private fun paintChargers() {
+        val m = ml ?: return
+        val src = m.style?.getSourceAs<GeoJsonSource>(SRC_EV) ?: return
+        if (m.cameraPosition.zoom < 10) { src.setGeoJson(FeatureCollection.fromFeatures(arrayOf<Feature>())); return }
+        val b = m.projection.visibleRegion.latLngBounds
+        val list = runCatching {
+            MapSearch.inBox(this, listOf("charging"), b.latitudeSouth, b.longitudeWest, b.latitudeNorth, b.longitudeEast)
+        }.getOrDefault(emptyList())
+        src.setGeoJson(FeatureCollection.fromFeatures(list.map { p ->
+            Feature.fromGeometry(Point.fromLngLat(p.lon, p.lat)).apply {
+                addStringProperty("name", p.name)
+                addStringProperty("sub", p.sub)
+            }
         }))
     }
 
@@ -1483,6 +1517,15 @@ class MapActivity : Activity() {
         if (searchBox.hasFocus()) hideKeyboard()
         val pt = m.projection.toScreenLocation(at)
         val r = Ui.dp(this, 16).toFloat()
+        // A charging station marker: open its card (name, directions).
+        runCatching { m.queryRenderedFeatures(RectF(pt.x - r, pt.y - r, pt.x + r, pt.y + r), L_EV) }.getOrNull()
+            ?.firstOrNull()?.let { f ->
+                val g = f.geometry() as? Point ?: return@let
+                val name = (if (f.hasProperty("name")) f.getStringProperty("name") else null)?.takeIf { it.isNotBlank() } ?: "محطة شحن"
+                val sub = if (f.hasProperty("sub")) f.getStringProperty("sub").orEmpty() else ""
+                showPlace(Place(name, sub, g.latitude(), g.longitude(), "charging"), move = false)
+                return true
+            }
         val feats = runCatching {
             m.queryRenderedFeatures(RectF(pt.x - r, pt.y - r, pt.x + r, pt.y + r), "poi_r1", "poi_r7", "poi_r20", "poi_transit", "airport")
         }.getOrDefault(emptyList())
@@ -1811,9 +1854,11 @@ class MapActivity : Activity() {
         val n = nav ?: return
         n.update(loc.latitude, loc.longitude)
         if (n.arrived) {
+            Byd.navStop(this)
             arrive()
             return
         }
+        Byd.navUpdate(this, n) // BYD only: the next turn on the instrument cluster / HUD
         val speed = if (loc.hasSpeed()) loc.speed.toDouble() else 0.0
         if (!simulating && !rerouting) {
             // Well off the line for a few fixes in a row: the driver took another road.
@@ -1902,6 +1947,7 @@ class MapActivity : Activity() {
         ui.removeCallbacks(simTick)
         ui.removeCallbacks(recenter)
         voice?.stop()
+        Byd.navStop(this) // BYD: clear the turn from the instrument cluster
         mode = Mode.BROWSE
         nav = null
         route = null
@@ -2410,6 +2456,9 @@ class MapActivity : Activity() {
         const val SRC_REPORTS = "zmd-reports"
         const val SRC_CAMS = "zmd-cams"
         const val L_CAMS = "zmd-cams-layer"
+        const val SRC_EV = "zmd-ev"
+        const val L_EV = "zmd-ev-layer"
+        const val EV_IMG = "zmd-ev-charger"
         const val L_REPORTS = "zmd-reports-layer"
         const val VEHICLE_BG = "zmd-vehicle-bg"
     }

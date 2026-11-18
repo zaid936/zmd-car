@@ -82,6 +82,7 @@ class HubService : Service() {
             runCatching { sendBroadcast(Intent("com.zmd.auto.STEP_ASIDE").setPackage(Prefs.SEPARATE_AUTO)) }
         }
         syncAutoModes() // the built-in Android Auto: cable / wireless as chosen in ZMD Car
+        if (Byd.isByd(this)) handler.postDelayed(batteryTick, 3000) // BYD: battery % and range on the bar
         // Cable detection. RECEIVER_EXPORTED: these are system broadcasts (required flag on Android 14).
         androidx.core.content.ContextCompat.registerReceiver(this, usbReceiver, IntentFilter().apply {
             addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED)
@@ -481,6 +482,26 @@ class HubService : Service() {
 
     /** When the driver last picked a phone by hand for wireless Android Auto ([connectAutoTo]). */
     private var autoManualAt = 0L
+    /** The last reason Android Auto gave for not coming up (for the «دعم فني» report). */
+    private var autoLastFail: String? = null
+
+    /** Where Android Auto stands, one line, for the «دعم فني» report. */
+    fun autoReport(): String =
+        "phase=${autoPhase.ifEmpty { "-" }} (${(SystemClock.elapsedRealtime() - autoPhaseAt) / 1000}s ago) " +
+            "wanted=$autoWanted active=$active cable=${androidOnCable()} bluetooth=${bt.containsValue(PhoneType.ANDROID)} " +
+            "mode=${prefs.mode(PhoneType.ANDROID)} lastFail=${autoLastFail ?: "none"}"
+
+    /** BYD only: the battery line on the bar, refreshed every minute. */
+    private val batteryTick = object : Runnable {
+        override fun run() {
+            Thread({
+                val b = Byd.battery(this@HubService)
+                val text = b?.let { "🔋 ${it.percent}%" + (it.rangeKm?.let { r -> " · $r كم" } ?: "") }
+                handler.post { overlay.setBattery(text) }
+            }, "zmd-byd-battery").start()
+            handler.postDelayed(this, 60_000)
+        }
+    }
 
     /** The phone is reachable one way or the other (cable, wireless over Bluetooth, or picked by hand just now). */
     private fun androidPresent(): Boolean = androidOnCable() || androidWireless() ||
@@ -681,6 +702,7 @@ class HubService : Service() {
                 }
             }
             ZmdAuto.FAILED -> {
+                autoLastFail = "${reason ?: "?"}: ${detail ?: ""}"
                 if (!onCable) return // the cable is out: onUnlink() already says the phone is gone
                 // ZMD Auto often retries a failed try about 1.5 s later: show the failure only if
                 // nothing newer has arrived by then.

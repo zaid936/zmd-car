@@ -55,35 +55,69 @@ class MainActivity : Activity() {
 
     // ---------------------------------------------------------------- setup
 
+    /**
+     * First-run wizard for a new customer, one step at a time: 1) permissions, 2) pair the phone
+     * over Bluetooth and say whether it's an iPhone or an Android, 3) the map (look + the offline
+     * Iraq download). Only step 1 is required. When setup was already done and a required
+     * permission went missing later, only the permissions step shows.
+     */
+    private var step = 0
+    private var mapListener: ((MapData.Status) -> Unit)? = null
+
     private fun renderSetup() {
         val c = this
+        val steps = if (prefs.setupDone) 1 else 3
+        if (step >= steps) step = steps - 1
         val root = Ui.vbox(c).apply {
             layoutDirection = View.LAYOUT_DIRECTION_RTL
             setPadding(dp(24), dp(20) + Ui.dp(c, prefs.iconDp + 24), dp(24), dp(28))
         }
         root.addView(Ui.label(c, "أهلاً بيك بـ ${getString(R.string.app_name)}", 28f, bold = true))
-        root.addView(Ui.label(c, "فعّل هالصلاحيات حتى يشتغل البرنامج زين. كل زر يفتحلك صفحتها، فعّلها وارجع لهنا.", 15f, Ui.SUB),
-            Ui.lp(Ui.MATCH, Ui.WRAP).apply { topMargin = dp(4) })
+        if (steps > 1) {
+            root.addView(Ui.label(c, "خطوة ${step + 1} من $steps: " + STEP_TITLES[step], 16f, Ui.OK, bold = true),
+                Ui.lp(Ui.MATCH, Ui.WRAP).apply { topMargin = dp(4) })
+            root.addView(stepDots(steps), Ui.lp(Ui.WRAP, Ui.WRAP).apply { topMargin = dp(8) })
+        }
+        if (step != 2) mapListener?.let { MapData.removeListener(it); mapListener = null }
+        when (step) {
+            0 -> setupPermissions(root)
+            1 -> setupPhone(root)
+            else -> setupMap(root)
+        }
 
-        root.addView(permissionsCard(), cardLp())
-
-        val missing = Perms.missing(c)
-        val needed = missing.filter { it.required }
+        val needed = Perms.missingRequired(c)
         val bottom = Ui.hbox(c).apply { gravity = Gravity.CENTER_VERTICAL }
         val note = when {
-            needed.isNotEmpty() -> "باقي لازم: " + needed.joinToString("، ") { it.title }
-            missing.isNotEmpty() -> "تكدر تبدي هسه، والباقي تفعّله بعدين من الإعدادات"
-            else -> "كلشي جاهز"
+            step == 0 && needed.isNotEmpty() -> "باقي لازم: " + needed.joinToString("، ") { it.title }
+            step == 0 && Perms.missing(c).isNotEmpty() -> "تگدر تكمل هسه، والباقي تفعّله بعدين من الإعدادات"
+            step == 0 -> "الصلاحيات كلها جاهزة"
+            step == 1 -> "تگدر تتخطى هالخطوة وتقرن التلفون بعدين"
+            else -> "تگدر تنزّل الخريطة بعدين من إعدادات الخريطة"
         }
-        bottom.addView(Ui.label(c, note, 15f, if (needed.isEmpty()) Ui.OK else Ui.BAD), Ui.lp(0, Ui.WRAP, 1f))
-        if (missing.isNotEmpty()) {
-            // Walks through the missing ones in order: one tap, one settings page.
-            bottom.addView(Ui.button(c, "فعّل الجاية") { request(missing.first()) },
+        bottom.addView(Ui.label(c, note, 15f, if (step == 0 && needed.isNotEmpty()) Ui.BAD else Ui.OK), Ui.lp(0, Ui.WRAP, 1f))
+        if (step > 0) {
+            bottom.addView(Ui.button(c, "رجوع") { step--; renderSetup() },
                 Ui.lp(Ui.WRAP, Ui.WRAP).apply { marginStart = dp(10) })
         }
-        bottom.addView(Ui.button(c, "ابدأ", primary = needed.isEmpty()) {
+        if (step == 0) {
+            val missing = Perms.missing(c)
+            if (missing.isNotEmpty()) {
+                // Walks through the missing ones in order: one tap, one settings page.
+                bottom.addView(Ui.button(c, "فعّل الجاية") { request(missing.first()) },
+                    Ui.lp(Ui.WRAP, Ui.WRAP).apply { marginStart = dp(10) })
+            }
+        }
+        val last = step == steps - 1
+        bottom.addView(Ui.button(c, if (last) "ابدأ" else "التالي", primary = needed.isEmpty()) {
             if (Perms.missingRequired(c).isNotEmpty()) {
                 toast("فعّل الصلاحيات اللازمة أول")
+                step = 0
+                renderSetup()
+                return@button
+            }
+            if (!last) {
+                step++
+                renderSetup()
                 return@button
             }
             prefs.setupDone = true
@@ -97,6 +131,126 @@ class MainActivity : Activity() {
             isVerticalScrollBarEnabled = false
             addView(root)
         })
+    }
+
+    /** Small progress pills under the step title. */
+    private fun stepDots(n: Int): View = Ui.hbox(this).apply {
+        for (i in 0 until n) {
+            addView(View(this@MainActivity).apply {
+                background = android.graphics.drawable.GradientDrawable().apply {
+                    cornerRadius = dp(4).toFloat()
+                    setColor(if (i <= step) Ui.OK else 0x55FFFFFF)
+                }
+            }, LinearLayout.LayoutParams(dp(if (i == step) 28 else 14), dp(8)).apply { marginEnd = dp(6) })
+        }
+    }
+
+    private fun setupPermissions(root: LinearLayout) {
+        root.addView(Ui.label(this, "فعّل هالصلاحيات حتى يشتغل البرنامج زين. كل زر يفتحلك صفحتها، فعّلها وارجع لهنا.", 15f, Ui.SUB),
+            Ui.lp(Ui.MATCH, Ui.WRAP).apply { topMargin = dp(10) })
+        root.addView(permissionsCard(), cardLp())
+    }
+
+    /** Step 2: pair the phone in Android's Bluetooth page, then label it here (iPhone / Android). */
+    private fun setupPhone(root: LinearLayout) {
+        val c = this
+        root.addView(Ui.label(c, "اقرن تلفونك ويه الشاشة بالبلوتوث، وبعدين حدد نوعه حتى البرنامج يعرف يفتحله CarPlay لو Android Auto.", 15f, Ui.SUB),
+            Ui.lp(Ui.MATCH, Ui.WRAP).apply { topMargin = dp(10) })
+        val box = card("التلفون")
+        box.addView(Ui.label(c, "1. دوس «افتح البلوتوث» واقرن تلفونك من هناك.\n2. ارجع لهنا وحدد نوع التلفون من القائمة.", 15f),
+            Ui.lp(Ui.MATCH, Ui.WRAP).apply { bottomMargin = dp(10) })
+        val btns = Ui.hbox(c)
+        btns.addView(Ui.button(c, "افتح البلوتوث", primary = true) {
+            open(Intent(Settings.ACTION_BLUETOOTH_SETTINGS))
+        }, Ui.lp(Ui.WRAP, Ui.WRAP).apply { marginEnd = dp(10) })
+        btns.addView(Ui.button(c, "حدّث القائمة") { renderSetup() }, Ui.lp(Ui.WRAP, Ui.WRAP))
+        box.addView(btns, Ui.lp(Ui.MATCH, Ui.WRAP).apply { bottomMargin = dp(8) })
+
+        val phones = bondedPhones()
+        when {
+            phones == null -> box.addView(Ui.label(c, "صلاحية البلوتوث مطفية، فما أگدر أشوف التلفونات المقترنة. ارجع للخطوة الأولى وفعّلها.", 14f, Ui.BAD))
+            phones.isEmpty() -> box.addView(Ui.label(c, "بعد ما أكو تلفون مقترن ويه الشاشة.", 14f, Ui.SUB))
+            else -> for ((mac, name, guess) in phones) {
+                val saved = prefs.phoneType(mac)
+                val shown = saved ?: guess
+                val sel = when (shown) { PhoneType.IPHONE -> 0; PhoneType.ANDROID -> 1; else -> -1 }
+                val seg = Ui.segmented(c, listOf("آيفون", "أندرويد"), sel) { i ->
+                    prefs.savePhone(mac, name, if (i == 0) PhoneType.IPHONE else PhoneType.ANDROID)
+                    renderSetup()
+                }
+                val sub = when (saved) {
+                    PhoneType.IPHONE -> "محفوظ: آيفون ← CarPlay"
+                    PhoneType.ANDROID -> "محفوظ: أندرويد ← Android Auto"
+                    null -> "حدد نوعه"
+                }
+                row(box, name, sub, null, status(saved != null), seg)
+            }
+        }
+        root.addView(box, cardLp())
+    }
+
+    /** Phones paired with this screen: (address, name, best guess of the type); null = no Bluetooth permission. */
+    private fun bondedPhones(): List<Triple<String, String, PhoneType?>>? {
+        if (Build.VERSION.SDK_INT >= 31 &&
+            checkSelfPermission(Perms.BT_CONNECT) != android.content.pm.PackageManager.PERMISSION_GRANTED) return null
+        val adapter = getSystemService(android.bluetooth.BluetoothManager::class.java)?.adapter ?: return emptyList()
+        return runCatching {
+            adapter.bondedDevices.filter { Detect.btLooksLikePhone(it) }.map {
+                Triple(it.address, runCatching { it.name }.getOrNull() ?: it.address, Detect.btGuess(it))
+            }.sortedBy { it.second.lowercase() }
+        }.getOrDefault(emptyList())
+    }
+
+    /** Step 3: how the map looks, and the one-time offline Iraq download (search + directions without internet). */
+    private fun setupMap(root: LinearLayout) {
+        val c = this
+        root.addView(Ui.label(c, "اختار شكل الخريطة، ونزّل خريطة العراق حتى البحث والاتجاهات تشتغل بدون نت.", 15f, Ui.SUB),
+            Ui.lp(Ui.MATCH, Ui.WRAP).apply { topMargin = dp(10) })
+        val box = card("الخريطة")
+        box.addView(Ui.label(c, "شكل الخريطة", 16f, bold = true), Ui.lp(Ui.MATCH, Ui.WRAP).apply { bottomMargin = dp(6) })
+        for (r in MapLook.values().toList().chunked(3)) {
+            box.addView(Ui.segmented(c, r.map { it.title }, r.indexOf(prefs.mapLook)) { i ->
+                prefs.mapLook = r[i]
+                renderSetup()
+            }, Ui.lp(Ui.MATCH, Ui.WRAP).apply { bottomMargin = dp(8) })
+        }
+        val dl = Ui.label(c, mapDownloadText(MapData.status), 15f, if (MapData.complete(c)) Ui.OK else Ui.WHITE)
+        val r = Ui.hbox(c).apply { gravity = Gravity.CENTER_VERTICAL }
+        r.addView(dl, Ui.lp(0, Ui.WRAP, 1f))
+        if (!MapData.complete(c) && !MapData.busy()) {
+            r.addView(Ui.button(c, "نزّل خريطة العراق", primary = true) {
+                MapData.start(c)
+                renderSetup()
+            }, Ui.lp(Ui.WRAP, Ui.WRAP).apply { marginStart = dp(10) })
+        }
+        box.addView(r, Ui.lp(Ui.MATCH, Ui.WRAP).apply { topMargin = dp(8) })
+        root.addView(box, cardLp())
+        // Live progress while this step is on screen.
+        mapListener?.let { MapData.removeListener(it) }
+        var lastPhase = MapData.status.phase
+        val l: (MapData.Status) -> Unit = { st ->
+            dl.text = mapDownloadText(st)
+            val ended = st.phase == MapData.Phase.DONE || st.phase == MapData.Phase.ERROR
+            if (ended && lastPhase != st.phase && !isFinishing) { lastPhase = st.phase; renderSetup() } else lastPhase = st.phase
+        }
+        mapListener = l
+        MapData.addListener(l)
+    }
+
+    private fun mapDownloadText(st: MapData.Status): String = when {
+        MapData.complete(this) -> "خريطة العراق منزّلة ✓"
+        st.phase == MapData.Phase.DOWNLOADING && st.total > 0 ->
+            "دا ينزّل: ${st.done * 100 / st.total}% (${st.done / 1_048_576} من ${st.total / 1_048_576} ميگا)"
+        st.phase == MapData.Phase.CHECKING || st.phase == MapData.Phase.DOWNLOADING -> "دا يبدي التنزيل…"
+        st.phase == MapData.Phase.INSTALLING -> "دا يجهّز الخريطة…"
+        st.phase == MapData.Phase.ERROR -> "التنزيل وگف" + (if (st.note.isNotEmpty()) ": ${st.note}" else "") + ". جرّب مرة ثانية"
+        else -> "مرة وحدة، حوالي 290 ميگا. يكمل بالخلفية حتى لو طلعت من هالصفحة"
+    }
+
+    override fun onPause() {
+        super.onPause()
+        mapListener?.let { MapData.removeListener(it) }
+        mapListener = null
     }
 
     /**
@@ -141,7 +295,12 @@ class MainActivity : Activity() {
         titles.addView(Ui.label(c, getString(R.string.app_name), 28f, bold = true))
         val ver = runCatching { packageManager.getPackageInfo(packageName, 0).versionName }.getOrNull() ?: ""
         titles.addView(Ui.label(c, "النسخة $ver · دوس مطوّل على الشريط الطايف حتى ترجع لهنا", 13f, Ui.SUB))
+        // AGPL-3.0 (the built-in Android Auto engine): whoever gets the app can get its source.
+        titles.addView(Ui.label(c, "الرخصة AGPL-3.0 · الكود المصدري: $SOURCE_URL", 12f, Ui.SUB))
         head.addView(titles, Ui.lp(0, Ui.WRAP, 1f))
+        // «دعم فني»: a report of this screen, sent by the driver through the share sheet (Support.kt).
+        head.addView(Ui.button(c, "دعم فني") { Support.show(this) },
+            Ui.lp(Ui.WRAP, Ui.WRAP).apply { marginEnd = dp(10) })
         head.addView(Ui.button(c, "المتجر") { startActivity(Intent(c, StoreActivity::class.java)) },
             Ui.lp(Ui.WRAP, Ui.WRAP).apply { marginEnd = dp(10) })
         head.addView(Ui.button(c, "افتح الخريطة", primary = true) { HubService.start(c, HubService.ACTION_MAP) })
@@ -520,5 +679,8 @@ class MainActivity : Activity() {
 
     private companion object {
         const val REQ_RUNTIME = 41
+        val STEP_TITLES = listOf("الصلاحيات", "التلفون", "الخريطة")
+        /** Where ZMD Car's source is offered (AGPL-3.0, because of the built-in Android Auto engine). */
+        const val SOURCE_URL = "github.com/zaid936/zmd-car"
     }
 }

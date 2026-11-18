@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
     <external-files-path name="store" path="store/" />
+    <!-- «دعم فني» report (Support.kt), shared through the share sheet. -->
+    <external-files-path name="support" path="support/" />
 </paths>

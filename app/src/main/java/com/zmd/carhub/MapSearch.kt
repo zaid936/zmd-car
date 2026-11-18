@@ -165,6 +165,20 @@ object MapSearch {
         return best
     }
 
+    /** Places of these kinds inside a box (south, west, north, east), for drawing them on the map. */
+    fun inBox(ctx: Context, kinds: List<String>, s: Double, w: Double, n: Double, e: Double, limit: Int = 300): List<Place> {
+        val d = open(ctx) ?: return emptyList()
+        val marks = kinds.joinToString(",") { "?" }
+        val found = HashMap<Int, Row>()
+        runCatching {
+            d.rawQuery(
+                "SELECT $COLS FROM places p WHERE p.kind IN ($marks) AND p.lat BETWEEN ? AND ? AND p.lon BETWEEN ? AND ? LIMIT $limit",
+                (kinds + listOf(s.toString(), n.toString(), w.toString(), e.toString())).toTypedArray()
+            ).use { rows(it, found) }
+        }
+        return found.values.map { it.place }
+    }
+
     /** What is at this point: the named place it sits on, or the street it is next to. */
     fun reverse(ctx: Context, lat: Double, lon: Double): Place? {
         val d = open(ctx) ?: return null

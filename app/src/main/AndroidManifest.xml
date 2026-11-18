@@ -26,6 +26,15 @@
     <!-- To fully close CarPlay / Android Auto (DiPlay / DiAuto) after the phone is unplugged. -->
     <uses-permission android:name="android.permission.KILL_BACKGROUND_PROCESSES" />
 
+    <!-- BYD DiLink only (unknown, so ignored, on other screens): read the car's battery % and electric
+         range for the bar (Byd.kt). BYD's vehicle permissions are normal-level: granted at install. -->
+    <uses-permission android:name="android.permission.BYDAUTO_STATISTIC_GET" />
+    <uses-permission android:name="android.permission.BYDAUTO_STATISTIC_COMMON" />
+    <uses-permission android:name="android.permission.BYDAUTO_ENERGY_GET" />
+    <uses-permission android:name="android.permission.BYDAUTO_ENERGY_COMMON" />
+    <uses-permission android:name="android.permission.BYDAUTO_INSTRUMENT_GET" />
+    <uses-permission android:name="android.permission.BYDAUTO_INSTRUMENT_COMMON" />
+
     <!-- ZMD Car and ZMD Auto (our Android Auto, same signing key) talk only through this: ZMD Auto
          reports its connection stages, and only ZMD Car may open its private screens. Both apps
          define it, so it works whichever of the two is installed first. -->

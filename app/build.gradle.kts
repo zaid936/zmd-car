@@ -111,5 +111,7 @@ dependencies {
     // Android Auto, built in: the ZMD Auto engine (A:\byd\ZMD-Auto :engine, AGPL-3.0). Its screens
     // and services run in our ":auto" process and report to HubService (ZmdAuto.kt). Shipping it
     // means ZMD Car's source must be offered to whoever gets the app.
-    implementation("com.zmd:auto-engine:0.3.12-zmd.2")
+    implementation("com.zmd:auto-engine:0.3.12-zmd.3")
+    // QR code in the «دعم فني» window (same version the engine already ships).
+    implementation("com.google.zxing:core:3.5.3")
 }

@@ -151,6 +151,27 @@ object MapIcons {
         override fun getIntrinsicHeight(): Int = -1
     }
 
+    /** EV charging station marker: a green disc with a white lightning bolt. */
+    fun chargerBitmap(ctx: Context, sizeDp: Int = 30): Bitmap {
+        val s = Ui.dp(ctx, sizeDp)
+        val bmp = Bitmap.createBitmap(s, s, Bitmap.Config.ARGB_8888)
+        val c = Canvas(bmp)
+        val r = s / 2f
+        c.drawCircle(r, r, r - 1, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFFFFFFF.toInt() })
+        c.drawCircle(r, r, r - Ui.dp(ctx, 2), Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFF12A150.toInt() })
+        val bolt = Path().apply {
+            moveTo(s * 0.56f, s * 0.16f)
+            lineTo(s * 0.30f, s * 0.56f)
+            lineTo(s * 0.48f, s * 0.56f)
+            lineTo(s * 0.42f, s * 0.84f)
+            lineTo(s * 0.70f, s * 0.42f)
+            lineTo(s * 0.52f, s * 0.42f)
+            close()
+        }
+        c.drawPath(bolt, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFFFFFFF.toInt() })
+        return bmp
+    }
+
     /** A teardrop map pin with a white centre, as a bitmap for the map style. */
     fun pinBitmap(ctx: Context, color: Int, heightDp: Int = 46): Bitmap {
         val h = Ui.dp(ctx, heightDp)

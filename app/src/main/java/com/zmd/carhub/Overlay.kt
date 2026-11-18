@@ -19,6 +19,7 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
+import android.widget.TextView
 import java.io.File
 import kotlin.math.abs
 import kotlin.math.max
@@ -47,6 +48,17 @@ class Overlay(private val svc: HubService) {
     private var icCarplay: ImageView? = null
     private var icAuto: ImageView? = null
     private var icSplit: ImageView? = null
+    private var batteryChip: TextView? = null
+    private var batteryText: String? = null
+
+    /** BYD battery line on the bar, e.g. «🔋 78% · 320 كم» (null = hide). */
+    fun setBattery(text: String?) {
+        batteryText = text
+        batteryChip?.apply {
+            this.text = text.orEmpty()
+            visibility = if (text.isNullOrEmpty()) View.GONE else View.VISIBLE
+        }
+    }
     private var storeDot: View? = null
     private var badgeOn = false
     private var panel: View? = null
@@ -84,6 +96,13 @@ class Overlay(private val svc: HubService) {
         // Split = the app on screen now + one the user picks (the map only when the map is on screen).
         icSplit = icon(b, R.drawable.ic_split, size) { svc.toggleSplit(withCurrent = true) }
         storeIcon(b, size) { svc.openStore() }
+        // BYD only: battery % and electric range (hidden until the car tells us; see Byd.kt).
+        batteryChip = Ui.label(ctx, "", 14f, Ui.WHITE, bold = true).apply {
+            visibility = if (batteryText.isNullOrEmpty()) View.GONE else View.VISIBLE
+            text = batteryText.orEmpty()
+            setPadding(Ui.dp(ctx, 8), 0, Ui.dp(ctx, 4), 0)
+        }
+        b.addView(batteryChip, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT))
         b.setOnTouchListener(Touch(onTap = {}))
 
         // Fixed in the top-right corner (agreed with the user): it does not move.
@@ -545,6 +564,8 @@ class Overlay(private val svc: HubService) {
     // ---------------------------------------------------------------- connection stages
 
     fun showSteps(list: List<Step>) {
+        // Problems the driver sees go into the «دعم فني» report too.
+        list.filter { it.state == Step.ERROR }.forEach { Support.note(it.text) }
         handler.removeCallbacks(hideStepsRun)
         removeSteps()
         if (!canDraw()) return
