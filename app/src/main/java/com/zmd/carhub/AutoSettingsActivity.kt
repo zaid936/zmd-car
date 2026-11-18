@@ -112,7 +112,8 @@ class AutoSettingsActivity : Activity() {
 
         // ---- car + reset
         card("السيارة").also { box ->
-            textRow(box, "اسم السيارة بـ Android Auto", s.vehicleDisplayName, false) { s.vehicleDisplayName = it }
+            // Fixed (the user's choice): the engine sets it back to «ZMD» every start.
+            row(box, "اسم السيارة بـ Android Auto", com.andrerinas.openheadunit.zmd.ZmdDefaults.CAR_NAME, null)
             row(box, "رجّع إعدادات Android Auto الأصلية", "إذا شي ما يشتغل بعد التغيير", Ui.button(this, "رجّع") { confirmReset() })
         }
     }
