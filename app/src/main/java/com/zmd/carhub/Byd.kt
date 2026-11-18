@@ -110,12 +110,55 @@ object Byd {
         else -> null
     }
 
+    // ------------------------------------------------------------ auto-start page
+
+    /** Words in the class name of an «auto-start management» screen (BYD, and other car-screen makers). */
+    private val AUTOSTART = Regex("auto.?start|autorun|auto.?launch|boot.?(manage|start)|startup.?manage|selfstart", RegexOption.IGNORE_CASE)
+
+    /** Exported screens on this device that look like an auto-start manager, best first. */
+    fun autoStartScreens(ctx: Context): List<android.content.ComponentName> {
+        val pm = ctx.packageManager
+        val pkgs = runCatching { pm.getInstalledPackages(0).map { it.packageName } }.getOrDefault(emptyList())
+            .filter { it == "com.android.settings" || it.contains("byd", true) || it.contains("settings", true) ||
+                it.contains("security", true) || it.contains("permission", true) }
+        val out = ArrayList<android.content.ComponentName>()
+        for (p in pkgs) {
+            val acts = runCatching {
+                pm.getPackageInfo(p, android.content.pm.PackageManager.GET_ACTIVITIES).activities
+            }.getOrNull() ?: continue
+            for (a in acts) if (a.exported && AUTOSTART.containsMatchIn(a.name)) out += android.content.ComponentName(p, a.name)
+        }
+        // BYD's own screens first.
+        return out.sortedByDescending { it.packageName.contains("byd", true) }
+    }
+
+    /**
+     * Opens the screen's auto-start manager, where ZMD Car must be allowed to start by itself
+     * (on BYD it's a BLOCK list: ZMD Car's switch OFF = allowed). If none is found: this app's
+     * info page, else the apps list, so the driver can reach it by hand.
+     */
+    fun openAutoStart(ctx: Context): Boolean {
+        val flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        for (c in autoStartScreens(ctx)) {
+            if (runCatching { ctx.startActivity(Intent().setComponent(c).addFlags(flags)) }.isSuccess) return true
+        }
+        val fallbacks = listOf(
+            Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.parse("package:${ctx.packageName}")),
+            Intent(android.provider.Settings.ACTION_MANAGE_APPLICATIONS_SETTINGS),
+            Intent(android.provider.Settings.ACTION_SETTINGS),
+        )
+        for (i in fallbacks) if (runCatching { ctx.startActivity(i.addFlags(flags)) }.isSuccess) return false
+        return false
+    }
+
     // ------------------------------------------------------------ support report
 
     /** What this screen offers of BYD's vehicle SDK (classes and battery/range-looking methods). */
     fun report(ctx: Context): List<String> {
-        if (!isByd(ctx)) return listOf("not a BYD screen")
+        val autoStart = "auto-start screens: " + autoStartScreens(ctx).joinToString { it.flattenToShortString() }.ifEmpty { "none found" }
+        if (!isByd(ctx)) return listOf("not a BYD screen", autoStart)
         val out = ArrayList<String>()
+        out += autoStart
         out += "battery read: " + (battery(ctx)?.let { "${it.percent}% ${it.rangeKm ?: "?"} km" } ?: "none")
         val classes = listOf(
             INSTRUMENT, "$SDK.statistic.BYDAutoStatisticDevice", "$SDK.energy.BYDAutoEnergyDevice",

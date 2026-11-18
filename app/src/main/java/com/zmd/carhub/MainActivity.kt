@@ -569,6 +569,12 @@ class MainActivity : Activity() {
             })
         row(box, "يشتغل وحده من تشتغل السيارة", "ويفتح الخريطة", null, null,
             switch(prefs.startOnBoot) { prefs.startOnBoot = it })
+        // BYD (and similar screens): «إدارة التشغيل التلقائي» is a BLOCK list; ZMD Car must be OFF there.
+        row(box, "إدارة التشغيل التلقائي",
+            "بسيارات BYD: تأكد ZMD Car مطفي بهالقائمة، لأن تشغيله هناك يمنعه من الاشتغال وحده", null, null,
+            action("افتح") {
+                if (!Byd.openAutoStart(this)) toast("ما لگيت صفحة التشغيل التلقائي، فتحتلك صفحة البرنامج")
+            })
         row(box, "يرجع للخريطة من ينفصل التلفون", null, null, null,
             switch(prefs.backToMap) { prefs.backToMap = it })
         return box
