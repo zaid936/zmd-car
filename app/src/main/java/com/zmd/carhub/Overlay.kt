@@ -454,6 +454,11 @@ class Overlay(private val svc: HubService) {
                 dismissPanel()
                 showAutoPhonePicker()
             }, Ui.lp(Ui.MATCH, Ui.WRAP).apply { topMargin = Ui.dp(ctx, 8) })
+            // Self mode: the Android Auto app on this screen, without a phone.
+            box.addView(Ui.button(ctx, "Android Auto من الشاشة نفسها (بلا تلفون)") {
+                dismissPanel()
+                svc.startAutoSelf()
+            }, Ui.lp(Ui.MATCH, Ui.WRAP).apply { topMargin = Ui.dp(ctx, 8) })
         }
         showCard(box, Ui.dp(ctx, 340), underBar = true, timeoutMs = 12000)
     }

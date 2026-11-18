@@ -26,6 +26,8 @@ object ZmdAuto {
     const val START = "start"
     /** Wireless: the engine is calling the phone it saw on Bluetooth and waits for it on Wi-Fi. */
     const val WIRELESS = "wireless"
+    /** Self mode: Android Auto from the Android Auto app on this screen (no phone). */
+    const val SELF = "self"
     const val PERMISSION_ASK = "permission"
     const val SWITCHING = "switching"
     const val CONNECTING = "connecting"
@@ -48,9 +50,12 @@ object ZmdAuto {
     const val PHONE_ENDED = "phone"
     const val LOST = "lost"
     const val WIRELESS_TIMEOUT = "wireless_timeout"
+    const val SELF_NO_SERVER = "self_no_server"
 
     private const val ACTION_CONNECT = "com.andrerinas.openheadunit.ACTION_CONNECT"
     private const val ACTION_SET_MODES = "com.zmd.auto.SET_MODES"
+    private const val ACTION_SELF = "com.andrerinas.openheadunit.ACTION_START_SELF_MODE"
+    const val GEARHEAD = "com.google.android.projection.gearhead"
     private const val EXTRA_MAC = "zmd_mac"
     private const val AUTOMATION = "com.andrerinas.openheadunit.main.AutomationActivity"
     private const val PROJECTION = "com.andrerinas.openheadunit.aap.AapProjectionActivity"
@@ -72,6 +77,24 @@ object ZmdAuto {
      */
     fun connectWireless(ctx: Context, mac: String): Boolean =
         start(ctx, Intent(ACTION_CONNECT).setClassName(PKG, AUTOMATION).putExtra(EXTRA_MAC, mac))
+
+    /**
+     * Self mode: Android Auto from the Android Auto app installed on THIS screen (no phone), with the
+     * screen's own apps and internet. The full Android Auto app is needed (not the system stub).
+     */
+    fun selfMode(ctx: Context): Boolean = start(ctx, Intent(ACTION_SELF).setClassName(PKG, AUTOMATION))
+
+    /** Google's Android Auto app on this screen: installed and the full app (not the empty system stub). */
+    fun screenAndroidAuto(ctx: Context): String? = runCatching {
+        ctx.packageManager.getPackageInfo(GEARHEAD, 0).versionName
+    }.getOrNull()
+
+    fun screenAndroidAutoUsable(ctx: Context): Boolean =
+        screenAndroidAuto(ctx)?.let { !it.contains("stub", ignoreCase = true) } == true
+
+    /** Android Auto's page in Play Store, to install / update the full app on this screen. */
+    fun openPlayStoreAndroidAuto(ctx: Context): Boolean = start(ctx,
+        Intent(Intent.ACTION_VIEW, android.net.Uri.parse("market://details?id=$GEARHEAD")))
 
     /** The driver's cable / wireless choice for Android, applied inside the engine too. */
     fun setModes(ctx: Context, usb: Boolean, wifi: Boolean) {
@@ -108,6 +131,7 @@ object ZmdAuto {
     fun stageText(state: String): String? = when (state) {
         START -> "دا ندوّر على التلفون بالكيبل"
         WIRELESS -> "دا نتصل بالتلفون لاسلكي (بلوتوث ثم واي فاي)، ابقى على الخريطة"
+        SELF -> "دا نشغّل Android Auto من الشاشة نفسها"
         PERMISSION_ASK -> "طلع طلب سماح USB لـ ZMD Auto: دوس «موافق» (وعلّم «دائماً» إذا موجودة)"
         SWITCHING -> "دا نحوّل التلفون لوضع Android Auto (ينفصل ويرجع لحظة)"
         CONNECTING -> "التلفون صار بوضع Android Auto، دا نتصل بيه"
@@ -127,6 +151,7 @@ object ZmdAuto {
         HANDSHAKE_FAILED -> "فشل التعارف الآمن ويا التلفون. شيل الكيبل ورجّعه"
         LOST -> "انقطع الاتصال ويا التلفون أثناء التشغيل. تأكد من الكيبل"
         WIRELESS_TIMEOUT -> "التلفون ما اتصل لاسلكي. بالتلفون: شغّل الواي فاي، وبإعدادات Android Auto فعّل «Android Auto اللاسلكي»، أو شبّكه بالكيبل"
+        SELF_NO_SERVER -> "شغّل «Start head unit server» بتطبيق Android Auto بالشاشة: افتحه ← الإعدادات ← دوس على رقم النسخة 10 مرات ← النقاط الثلاث فوق ← Start head unit server، وبعدين جرّب مرة ثانية"
         else -> "صار خطأ بـ Android Auto" + (detail?.takeIf { it.isNotBlank() }?.let { ": ${it.take(80)}" } ?: "")
     }
 }

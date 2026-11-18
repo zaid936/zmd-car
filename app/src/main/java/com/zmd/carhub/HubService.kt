@@ -464,7 +464,7 @@ class HubService : Service() {
     private var autoDetected: Step? = null
 
     private val autoInProgress = setOf(
-        ZmdAuto.START, ZmdAuto.WIRELESS, ZmdAuto.PERMISSION_ASK, ZmdAuto.SWITCHING, ZmdAuto.CONNECTING, ZmdAuto.HANDSHAKE
+        ZmdAuto.START, ZmdAuto.WIRELESS, ZmdAuto.SELF, ZmdAuto.PERMISSION_ASK, ZmdAuto.SWITCHING, ZmdAuto.CONNECTING, ZmdAuto.HANDSHAKE
     )
 
     private fun showAutoStep(step: Step) = overlay.showSteps(listOfNotNull(autoDetected, step))
@@ -518,6 +518,31 @@ class HubService : Service() {
                 .map { it.address to (runCatching { it.name }.getOrNull() ?: it.address) }
                 .sortedByDescending { it.first == autoBtMac || prefs.phoneType(it.first) == PhoneType.ANDROID }
         }.getOrDefault(emptyList())
+    }
+
+    /**
+     * Android Auto from the Android Auto app on this screen itself (self mode, no phone). Needs the
+     * full Android Auto app (not the empty system stub): otherwise Play Store opens on its page.
+     */
+    fun startAutoSelf() {
+        autoDetected = Step("Android Auto من الشاشة نفسها", Step.DONE)
+        if (!ZmdAuto.screenAndroidAutoUsable(this)) {
+            showAutoStep(Step(
+                if (ZmdAuto.screenAndroidAuto(this) == null) "تطبيق Android Auto مو منصّب بالشاشة. نصّبه من Play Store"
+                else "تطبيق Android Auto بالشاشة ناقص. حدّثه من Play Store وبعدين جرّب مرة ثانية",
+                Step.ERROR))
+            overlay.hideStepsLater(10_000)
+            ZmdAuto.openPlayStoreAndroidAuto(this)
+            return
+        }
+        autoManualAt = SystemClock.elapsedRealtime() // show its stages and failures
+        autoWanted = true
+        showAutoStep(Step(ZmdAuto.stageText(ZmdAuto.SELF)!!, Step.ACTIVE))
+        autoAskToken++
+        if (!ZmdAuto.selfMode(this)) {
+            showAutoStep(Step("ما گدرت أشغّل Android Auto من الشاشة", Step.ERROR))
+            overlay.hideStepsLater(8000)
+        }
     }
 
     /** The driver picked this phone in the Android Auto panel: connect to it wirelessly now. */
