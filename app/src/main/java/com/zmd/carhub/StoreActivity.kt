@@ -568,6 +568,12 @@ class StoreActivity : Activity() {
         // A visible copy in Download/ZMD Car too, for installing by hand from a file manager
         // (skipped when the same file is already there).
         PublicCopy.saveApkLater(this, file)
+        if (!Perms.canInstallApks(this)) {
+            // BYD DiLink: no installer screen; the copy in Download/ZMD Car goes on a USB stick.
+            status.text = "انحفظ بـ Download/ZMD Car. هالشاشة تنصّب من الفلاشة بس"
+            Bundled.noInstallerNotice(this)
+            return
+        }
         if (!packageManager.canRequestPackageInstalls()) {
             pendingInstall = file
             status.text = "اسمح للبرنامج يحط برامج، وارجع. التنصيب يكمل وحده"

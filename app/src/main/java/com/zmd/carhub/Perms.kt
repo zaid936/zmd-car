@@ -102,7 +102,31 @@ object Perms {
     fun missing(ctx: Context): List<Perm> =
         all(ctx).filter { !granted(ctx, it) }.sortedBy { if (it.required) 0 else 1 }
 
-    fun missingRequired(ctx: Context): List<Perm> = missing(ctx).filter { it.required }
+    /**
+     * Required ones that stop normal use. «الظهور فوق البرامج» only while the screen has a page to
+     * allow it: some car screens (BYD DiLink) hide that page, and then the setup screen must not
+     * hold the driver forever on something that can't be switched on.
+     */
+    fun missingRequired(ctx: Context): List<Perm> =
+        missing(ctx).filter { it.required && (it != Perm.OVERLAY || overlayGrantable(ctx)) }
+
+    /** This screen has a settings page where «display over other apps» can be allowed. */
+    fun overlayGrantable(ctx: Context): Boolean = runCatching {
+        val pm = ctx.packageManager
+        listOf(
+            Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${ctx.packageName}")),
+            Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION),
+        ).any { it.resolveActivity(pm) != null }
+    }.getOrDefault(true)
+
+    /**
+     * This screen can install APKs from inside an app (Android's installer screen exists). Newer
+     * BYD DiLink firmware removes it: there apps go in only through the USB «Third Party Apps» folder.
+     */
+    fun canInstallApks(ctx: Context): Boolean = runCatching {
+        Intent(Intent.ACTION_VIEW).setDataAndType(Uri.parse("content://${ctx.packageName}.files/x.apk"),
+            "application/vnd.android.package-archive").resolveActivity(ctx.packageManager) != null
+    }.getOrDefault(true)
 
     /**
      * The exact settings page for [p] (already has FLAG_ACTIVITY_NEW_TASK). Callers wrap

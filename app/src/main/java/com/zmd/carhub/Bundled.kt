@@ -77,6 +77,13 @@ object Bundled {
      * is still missing; its settings page has been opened instead.
      */
     fun install(a: Activity, app: BundledApp): Boolean {
+        if (!Perms.canInstallApks(a)) {
+            // BYD DiLink (newer firmware) has no installer screen: the copy goes to Download/ZMD Car
+            // and the driver installs it from a USB stick («Third Party Apps» folder).
+            file(a, app)?.let { PublicCopy.saveApkLater(a, it) }
+            noInstallerNotice(a)
+            return false
+        }
         if (!a.packageManager.canRequestPackageInstalls()) {
             runCatching {
                 a.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${a.packageName}")))
@@ -91,5 +98,16 @@ object Bundled {
             .setDataAndType(uri, "application/vnd.android.package-archive")
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         return runCatching { a.startActivity(i); true }.getOrDefault(false)
+    }
+
+    /** This screen can't install from inside apps (BYD DiLink): say how it's done there. */
+    fun noInstallerNotice(a: Activity) {
+        android.app.AlertDialog.Builder(a)
+            .setTitle("هالشاشة ما تنصّب من داخل البرامج")
+            .setMessage("شاشات BYD تنصّب البرامج من الفلاشة بس.\n\n" +
+                "الملف انحفظ بمجلد Download/ZMD Car. انقله لفلاشة (FAT32) بمجلد اسمه «Third Party Apps» " +
+                "وبعده رمز بلد السيارة (مثلاً Third Party Apps 964)، وركّب الفلاشة بالسيارة.")
+            .setPositiveButton("تمام", null)
+            .show()
     }
 }
