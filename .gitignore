@@ -19,3 +19,6 @@ key.properties
 
 # Not ours, so never shipped publicly: DiPlay (CarPlay) is a separate, unmodified app.
 /app/src/main/assets/bundled/*.apk
+
+# Internal notes, kept local
+/ملاحظات-المشروع.md
