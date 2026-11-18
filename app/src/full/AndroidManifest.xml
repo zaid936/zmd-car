@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Extra parts of the FULL build (assembleFull → app-full.apk), merged on top of
+     src/main/AndroidManifest.xml. Install this build from the PC over adb only: Play Protect blocks
+     it when installed by hand from a file manager, browser or chat app, because it declares an
+     accessibility service. The normal build (assembleRelease) has neither of these and installs
+     by hand. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+
+        <!-- ZMD Car as the screen's home app (launcher): a second filter on HomeActivity. -->
+        <activity android:name=".HomeActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <!-- The accessibility helper: split screen, which app is on screen, the side bar beside
+             other apps, and (only if switched on) tapping «Allow» on CarPlay's USB prompt. -->
+        <service
+            android:name=".HubA11yService"
+            android:exported="true"
+            android:label="@string/a11y_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/a11y" />
+        </service>
+    </application>
+</manifest>

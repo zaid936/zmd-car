@@ -1,0 +1,21 @@
+# Build output
+/build/
+/app/build/
+/.gradle/
+/.kotlin/
+local.properties
+*.iml
+.idea/
+hs_err_pid*.log
+build-*.txt
+
+# SECRETS: never in git (signing key and its passwords; keep a copy on a USB stick instead)
+/keys/
+*.jks
+*.keystore
+signing.properties
+key.properties
+.secrets/
+
+# Not ours, so never shipped publicly: DiPlay (CarPlay) is a separate, unmodified app.
+/app/src/main/assets/bundled/*.apk

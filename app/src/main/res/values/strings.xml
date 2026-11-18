@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ZMD Car</string>
+    <string name="a11y_label">ZMD Car: تقسيم الشاشة</string>
+    <string name="a11y_desc">يستخدمها ZMD Car حتى يقسم الشاشة بين الخريطة وبرنامج ثاني، ويعرف أي برنامج مفتوح وإذا الشاشة مقسومة، وإذا شغّلت خيارها بالإعدادات، يدوس «سماح» عنك على طلب USB مال CarPlay لما توصل الآيفون بالكيبل. ما يقرا أي نص أو محتوى على الشاشة غير نافذة السماح هاي.</string>
+</resources>

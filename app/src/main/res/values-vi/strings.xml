@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The built-in Android Auto engine (com.zmd:auto-engine) ships its own app_name per language;
+     without this the car screen (Arabic) shows "ZMD Auto" as the hub name. -->
+<resources>
+    <string name="app_name" translatable="false">ZMD Car</string>
+</resources>

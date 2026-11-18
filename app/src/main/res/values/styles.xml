@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Deep night-blue background (the coloured light is drawn in code, Ui.appBackground); glass in Ui.kt. -->
+    <style name="HubTheme" parent="android:Theme.DeviceDefault.NoActionBar">
+        <item name="android:windowBackground">@drawable/app_bg</item>
+        <item name="android:statusBarColor">#0B1230</item>
+        <item name="android:navigationBarColor">#0A2236</item>
+        <item name="android:colorAccent">#FFFFFF</item>
+    </style>
+
+    <style name="HubDialog" parent="android:Theme.DeviceDefault.Dialog.NoActionBar">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowIsFloating">true</item>
+        <!-- See-through: the app behind (e.g. YouTube when choosing the split app) stays visible. -->
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:backgroundDimAmount">0.35</item>
+        <item name="android:colorAccent">#FFFFFF</item>
+    </style>
+    <!-- Invisible home screen (launcher) that hands over to the map. -->
+    <style name="HubHome" parent="android:Theme.DeviceDefault.NoActionBar">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowAnimationStyle">@null</item>
+        <item name="android:windowShowWallpaper">true</item>
+    </style>
+</resources>
