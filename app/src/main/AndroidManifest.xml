@@ -100,6 +100,15 @@
             </intent-filter>
         </activity>
 
+        <!-- Android Auto's settings in ZMD Car's look. In the ":auto" process, next to the built-in
+             engine, so it reads and writes the engine's settings directly. -->
+        <activity
+            android:name=".AutoSettingsActivity"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:process=":auto" />
+
         <activity
             android:name=".MainActivity"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode"

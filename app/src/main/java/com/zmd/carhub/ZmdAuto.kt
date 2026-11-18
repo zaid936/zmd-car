@@ -54,7 +54,8 @@ object ZmdAuto {
     private const val EXTRA_MAC = "zmd_mac"
     private const val AUTOMATION = "com.andrerinas.openheadunit.main.AutomationActivity"
     private const val PROJECTION = "com.andrerinas.openheadunit.aap.AapProjectionActivity"
-    private const val SETTINGS = "com.andrerinas.openheadunit.main.MainActivity"
+    // Android Auto's settings are ZMD Car's own page now (AutoSettingsActivity); the engine's
+    // original settings screens are never opened.
     private const val ASK_MIC = "com.andrerinas.openheadunit.zmd.ZmdPermissionActivity"
 
     fun isInstalled(ctx: Context): Boolean = Apps.isInstalled(ctx, PKG)
@@ -88,7 +89,7 @@ object ZmdAuto {
     )
 
     /** ZMD Auto's own settings (it has no icon, so it can only be opened from the hub). */
-    fun openSettings(ctx: Context): Boolean = start(ctx, Intent(Intent.ACTION_MAIN).setClassName(PKG, SETTINGS))
+    fun openSettings(ctx: Context): Boolean = start(ctx, Intent(ctx, AutoSettingsActivity::class.java))
 
     /** ZMD Auto may use the microphone (Google Assistant inside Android Auto). */
     fun micAllowed(ctx: Context): Boolean =

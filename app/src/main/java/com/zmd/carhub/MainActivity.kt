@@ -276,8 +276,8 @@ class MainActivity : Activity() {
 
     /** The sections of the settings screen, in the side list. */
     private enum class Section(val title: String, val icon: String) {
-        HOME("الرئيسية", "🏠"), CONNECT("الاتصال", "🔗"), APPS("البرامج", "📱"), MAP("الخريطة", "🗺"),
-        LOOK("المظهر", "🎨"), GENERAL("عام", "⚙"), PERMS("الصلاحيات", "🔐"), TEST("تجربة", "🧪")
+        HOME("الرئيسية", "🏠"), CONNECT("الاتصال", "🔗"), MAP("الخريطة", "🗺"),
+        LOOK("المظهر", "🎨"), GENERAL("عام", "⚙"), PERMS("الصلاحيات", "🔐")
     }
 
     private var section = Section.HOME
@@ -330,13 +330,15 @@ class MainActivity : Activity() {
         content.addView(Ui.label(c, "${section.icon}  ${section.title}", 24f, bold = true), Ui.lp(Ui.MATCH, Ui.WRAP))
         when (section) {
             Section.HOME -> homeCards(content)
-            Section.CONNECT -> { content.addView(modesCard(), cardLp()); content.addView(connectCard(), cardLp()); content.addView(phonesCard(), cardLp()) }
-            Section.APPS -> content.addView(appsCard(), cardLp())
+            // The old «البرامج» tab lives here now: which apps open, and the bundled installs.
+            Section.CONNECT -> {
+                content.addView(modesCard(), cardLp()); content.addView(connectCard(), cardLp())
+                content.addView(appsCard(), cardLp()); content.addView(phonesCard(), cardLp())
+            }
             Section.MAP -> content.addView(mapCard(), cardLp())
             Section.LOOK -> { content.addView(themeCard(), cardLp()); content.addView(iconsCard(), cardLp()) }
             Section.GENERAL -> content.addView(generalCard(), cardLp())
             Section.PERMS -> content.addView(permissionsCard(), cardLp())
-            Section.TEST -> content.addView(testCard(), cardLp())
         }
         val contentScroll = ScrollView(c).apply { isVerticalScrollBarEnabled = false; addView(content) }
 
@@ -382,9 +384,9 @@ class MainActivity : Activity() {
         val have = perms.count { Perms.granted(c, it) }
         tile("🔐", "الصلاحيات", "$have من ${perms.size}", Perms.missingRequired(c).isEmpty(), Section.PERMS)
         val cp = !prefs.carplayPackage.isNullOrEmpty() && Apps.isInstalled(c, prefs.carplayPackage!!)
-        tile("", "CarPlay", if (cp) "جاهز" else "مو منصّب", cp, Section.APPS)
+        tile("", "CarPlay", if (cp) "جاهز" else "مو منصّب", cp, Section.CONNECT)
         val aa = !prefs.autoPackage.isNullOrEmpty() && Apps.isInstalled(c, prefs.autoPackage!!)
-        tile("🤖", "Android Auto", if (aa) "جاهز" else "مو منصّب", aa, Section.APPS)
+        tile("🤖", "Android Auto", if (aa) "جاهز" else "مو منصّب", aa, Section.CONNECT)
         val pack = MapData.complete(c)
         tile("🗺", "خريطة العراق", if (pack) "منزّلة" else "بالنت", pack, Section.MAP)
         content.addView(tiles, Ui.lp(Ui.MATCH, Ui.WRAP).apply { topMargin = dp(14) })
@@ -411,6 +413,9 @@ class MainActivity : Activity() {
             null, null, switch(HubA11yService.autoAllowCarPlayUsb(this)) { HubA11yService.setAutoAllowCarPlayUsb(this, it) })
         row(box, "يرجع للخريطة من ينفصل التلفون", null, null, null,
             switch(prefs.backToMap) { prefs.backToMap = it })
+        // Android Auto's own settings, in ZMD Car's look (AutoSettingsActivity, ":auto" process).
+        row(box, "إعدادات Android Auto", "الصورة، الصوت، اللاسلكي، الوضع الليلي، BYD", null, null,
+            action("افتح") { ZmdAuto.openSettings(this) })
         return box
     }
 
@@ -586,30 +591,6 @@ class MainActivity : Activity() {
                 render()
             })
         }
-        return box
-    }
-
-    private fun testCard(): View {
-        val box = card("تجربة بدون تلفون")
-        box.addView(Ui.label(this, "تمثّل اتصال تلفون حتى تشوف الأيقونات والمراحل تشتغل", 14f, Ui.SUB),
-            Ui.lp(Ui.MATCH, Ui.WRAP).apply { bottomMargin = dp(8) })
-        fun sim(text: String, t: PhoneType, cable: Boolean) = Ui.button(this, text) {
-            HubService.start(this, HubService.ACTION_SIM) {
-                putExtra(HubService.EXTRA_TYPE, t.name)
-                putExtra(HubService.EXTRA_CABLE, cable)
-            }
-        }
-        val r1 = Ui.hbox(this)
-        r1.addView(sim("آيفون كيبل", PhoneType.IPHONE, true), Ui.lp(0, Ui.WRAP, 1f).apply { marginEnd = dp(8) })
-        r1.addView(sim("آيفون لاسلكي", PhoneType.IPHONE, false), Ui.lp(0, Ui.WRAP, 1f))
-        box.addView(r1, Ui.lp(Ui.MATCH, Ui.WRAP))
-        val r2 = Ui.hbox(this)
-        r2.addView(sim("أندرويد كيبل", PhoneType.ANDROID, true), Ui.lp(0, Ui.WRAP, 1f).apply { marginEnd = dp(8) })
-        r2.addView(sim("أندرويد لاسلكي", PhoneType.ANDROID, false), Ui.lp(0, Ui.WRAP, 1f))
-        box.addView(r2, Ui.lp(Ui.MATCH, Ui.WRAP).apply { topMargin = dp(8) })
-        box.addView(Ui.button(this, "افصل الكل") {
-            HubService.start(this, HubService.ACTION_SIM) { putExtra(HubService.EXTRA_CLEAR, true) }
-        }, Ui.lp(Ui.MATCH, Ui.WRAP).apply { topMargin = dp(8) })
         return box
     }
 

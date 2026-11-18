@@ -64,6 +64,13 @@ object Ui {
         Theme("night", "أزرق ليلي", intArrayOf(0xFF0B1230.toInt(), 0xFF111A44.toInt(), 0xFF0A2236.toInt()),
             listOf(Glow(0x997B3FE4.toInt(), 0.12f, 0.05f, 0.55f), Glow(0x8012C2E9.toInt(), 0.95f, 0.95f, 0.6f), Glow(0x55F64F59, 0.85f, 0.1f, 0.35f)),
             0xFF0A84FF.toInt(), 0x99262B38.toInt(), 0xA6161A24.toInt(), 0xE6262B38.toInt(), 0xEB161A24.toInt()),
+        // Apple-style Liquid Glass: almost clear glass (the map/background shows through), a bright
+        // specular line along the top edge, a light rim and a soft glow along the bottom.
+        Theme("clear", "شفاف (Liquid Glass)", intArrayOf(0xFF1A2A4A.toInt(), 0xFF2A2350.toInt(), 0xFF153A52.toInt()),
+            listOf(Glow(0xCC5AA0FF.toInt(), 0.08f, 0.08f, 0.6f), Glow(0xAAFF6FB0.toInt(), 0.92f, 0.12f, 0.5f),
+                Glow(0x9950F0D8.toInt(), 0.88f, 0.95f, 0.55f), Glow(0x77FFD36A, 0.3f, 0.9f, 0.4f)),
+            0xFF5AB0FF.toInt(), 0x4D2A3448, 0x5C141A28, 0xB3283044.toInt(), 0xC0182030.toInt(),
+            sheen = 0x48, rim = 0xD9, card = 0x17FFFFFF, blur = 56),
         Theme("liquid", "زجاج سائل", intArrayOf(0xFF0E1A3A.toInt(), 0xFF1B1446.toInt(), 0xFF0B2A3E.toInt()),
             listOf(Glow(0xAA4F8BFF.toInt(), 0.1f, 0.1f, 0.6f), Glow(0x99FF5FA2.toInt(), 0.9f, 0.15f, 0.45f),
                 Glow(0x8840E0D0.toInt(), 0.85f, 0.95f, 0.55f), Glow(0x55FFC857, 0.3f, 0.85f, 0.35f)),
@@ -127,6 +134,27 @@ object Ui {
             cornerRadius = radius
         }
 
+    /** Themes drawn as liquid glass (extra light along the edges). */
+    private fun isLiquid(t: Theme) = t.id == "liquid" || t.id == "clear"
+
+    /**
+     * The specular line of Liquid Glass: a thin, very bright band hugging the top edge, as if
+     * light catches the curved rim of the glass. Drawn as a short top layer of the card.
+     */
+    private fun specular(c: Context, radius: Float): Drawable =
+        GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(0xB3FFFFFF.toInt(), 0x33FFFFFF, 0x00FFFFFF)).apply {
+            cornerRadii = floatArrayOf(radius, radius, radius, radius, 0f, 0f, 0f, 0f)
+        }
+
+    private fun withSpecular(c: Context, layers: MutableList<Drawable>, radius: Float): LayerDrawable {
+        val ld = LayerDrawable(layers.toTypedArray())
+        val i = ld.addLayer(specular(c, radius))
+        ld.setLayerHeight(i, dp(c, 6))
+        ld.setLayerGravity(i, Gravity.TOP or Gravity.FILL_HORIZONTAL)
+        ld.setLayerInset(i, dp(c, 1), dp(c, 1), dp(c, 1), 0)
+        return ld
+    }
+
     /** A thin bright rim, lighter on top like light catching the edge of glass. */
     private fun rim(c: Context, radius: Float, alpha: Int): Drawable =
         GradientDrawable().apply {
@@ -141,8 +169,11 @@ object Ui {
         val r = dp(c, radiusDp).toFloat()
         if (fill == GLASS) {
             val base = GradientDrawable().apply { setColor(t.card); cornerRadius = r }
-            val layers = mutableListOf(base, shine(r, t.sheen), rim(c, r, t.rim))
-            if (t.id == "liquid") layers.add(1, underGlow(r, 0x26))
+            val layers = mutableListOf<Drawable>(base, shine(r, t.sheen), rim(c, r, t.rim))
+            if (isLiquid(t)) {
+                layers.add(1, underGlow(r, if (t.id == "clear") 0x30 else 0x26))
+                if (t.id == "clear") return withSpecular(c, layers, r)
+            }
             return LayerDrawable(layers.toTypedArray())
         }
         val base = GradientDrawable().apply {
@@ -164,8 +195,11 @@ object Ui {
             GradientDrawable.Orientation.TOP_BOTTOM,
             if (opaque) intArrayOf(t.solidTop, t.solidBottom) else intArrayOf(t.floatTop, t.floatBottom)
         ).apply { cornerRadius = r }
-        val layers = mutableListOf(tint, shine(r, t.sheen), rim(c, r, t.rim))
-        if (t.id == "liquid") layers.add(2, underGlow(r, 0x2E))
+        val layers = mutableListOf<Drawable>(tint, shine(r, t.sheen), rim(c, r, t.rim))
+        if (isLiquid(t)) {
+            layers.add(2, underGlow(r, if (t.id == "clear") 0x38 else 0x2E))
+            if (t.id == "clear") return withSpecular(c, layers, r)
+        }
         return LayerDrawable(layers.toTypedArray())
     }
 
